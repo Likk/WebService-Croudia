@@ -21,9 +21,8 @@ my ($cr);
   );
 }
 
-  my $tl = $cr->public_timeline;
-  warn YAML::Dump $tl;
-  $tl = $cr->friends_timeline;
-  warn YAML::Dump $tl;
-  my $res = $cr->update({ status => 'Hello Croudia via perl script' });
+  my $follwers = $cr->follower;
+  warn YAML::Dump $follwers;
+  my $following = $cr->following;
+  warn YAML::Dump $following;
 

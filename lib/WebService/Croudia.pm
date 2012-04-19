@@ -43,7 +43,7 @@ use Text::Trim;
 
 =cut
 
-our $VERSION = '0.01';
+our $VERSION = '0.02'
 
 =head1 CONSTRUCTOR AND STARTUP
 
@@ -159,6 +159,49 @@ sub public_timeline {
   return $self->_parse_timeline($res->decoded_content);
 }
 
+=head2 follower
+
+get follower.
+
+=cut
+
+sub follower {
+  my $self  = shift;
+  my $user  = shift || $self->{username}; #TODO mail_addressでログインした人どうすんの
+  my $users = [];
+  my $offset = 0;
+  while(1){
+      my $res = $self->get(sprintf('/follows/follower/%s?offset=%s', ($user, $offset)));
+      my @users_tmp = @{$self->_parse_follows($res->decoded_content)};
+      push @$users, @users_tmp;
+      last if scalar @users_tmp < 20;
+      $offset+=20;
+  }
+  return $users;
+}
+
+=head2 following
+
+get following
+
+=cut
+
+sub following {
+  my $self  = shift;
+  my $user  = shift || $self->{username}; #TODO mail_addressでログインした人どうすんの
+  my $users = [];
+  my $offset = 0;
+  while(1){
+      my $res = $self->get(sprintf('/follows/following/%s?offset=%s', ($user, $offset)));
+      my @users_tmp = @{$self->_parse_follows($res->decoded_content)};
+      push @$users, @users_tmp;
+      last if scalar @users_tmp < 20;
+      $offset+=20;
+  }
+  return $users;
+
+}
+
 =head2 update
 
 post to the Croudia.:
@@ -247,6 +290,37 @@ sub _parse_timeline {
     $line->{status_id}     = [split m{/} ,$line->{url}]->[-1];
     $line->{relative_time} = trim($line->{relative_time});
     $line->{user_id}       = trim($line->{user_id});
+    push @$result, $line;
+  }
+  return $result;
+}
+
+=item B<_parse_follows>
+
+フォロワー周りの HTML を scarpe してリストにする
+
+=cut
+
+sub _parse_follows {
+  my $self = shift;
+  my $html = shift;
+  my $scraper = scraper {
+    process '//li',
+      'data[]' => scraper {
+        process '//a',          user_id       => '@href';
+        process '//p/span[1]',  nick          => 'TEXT';
+        process '//p[2]',       description   => 'TEXT';
+      };
+      result 'data';
+  };
+  my $data = $scraper->scrape($html) || [];
+  return if ref $data ne 'ARRAY';
+  my $result = [];
+  for my $line (@$data){
+    next if ref $line ne 'HASH';
+    next if not defined $line->{nick};
+    $line->{user_id} = [split m{/} ,$line->{user_id}]->[-1];
+    $line->{description} = trim($line->{description});
     push @$result, $line;
   }
   return $result;
