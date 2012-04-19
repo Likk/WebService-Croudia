@@ -246,7 +246,6 @@ sub follow {
     target_user_name   => $user,
   };
   my $res = $self->post('/follows/target_follow', $post);
-  warn YAML::Dump $res;
 }
 
 =head2 remove
@@ -267,7 +266,6 @@ sub remove {
   };
 
   my $res = $self->post('/follows/target_follow', $post);
-  warn YAML::Dump $res;
 
 }
 
