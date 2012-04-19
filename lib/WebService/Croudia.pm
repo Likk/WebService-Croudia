@@ -43,7 +43,7 @@ use Text::Trim;
 
 =cut
 
-our $VERSION = '0.02'
+our $VERSION = '0.03';
 
 =head1 CONSTRUCTOR AND STARTUP
 
@@ -73,13 +73,15 @@ sub new {
 
 sub login {
   my $self = shift;
-  my $res = $self->get('/');
+  #my $res = $self->get('/');
   my $post = {
     username     => $self->{username},
     password     => $self->{password},
     'checkbox-1' => 'on'
   };
-  $self->post('/', $post);
+  my $res        = $self->post('/', $post);
+  my $csrf_param = $self->_set_csrf_param($res->decoded_content);
+  return $csrf_param ? 1 : 0;
 }
 
 =head2 post
@@ -227,6 +229,48 @@ sub update {
 
 }
 
+=head2 follow
+
+follow user.:
+XXX:現時点の仕様では follow/remove がトグルになっている
+=cut
+
+sub follow {
+  my $self = shift;
+  my $user = shift;
+
+  my $post = {
+    utf8               => q{},
+    authenticity_token => $self->{csrf_param},
+    follow_action      => 'enable',
+    target_user_name   => $user,
+  };
+  my $res = $self->post('/follows/target_follow', $post);
+  warn YAML::Dump $res;
+}
+
+=head2 remove
+
+remove user.:
+XXX:現時点の仕様では follow/remove がトグルになっている
+=cut
+
+sub remove {
+  my $self = shift;
+  my $user = shift;
+
+  my $post = {
+    utf8               => q{},
+    authenticity_token => $self->{csrf_param},
+    follow_action      => 'diable', #XXX:運営側がtypoしている臭い
+    target_user_name   => $user,
+  };
+
+  my $res = $self->post('/follows/target_follow', $post);
+  warn YAML::Dump $res;
+
+}
+
 =head1 PRIVATE METHODS
 
 =over
@@ -259,6 +303,24 @@ sub _sleep_interval {
   my $wait = $self->{interval} - (time - $self->{last_req});
   sleep $wait if $wait > 0;
   $self->{last_req} = time;
+}
+
+=item B<_sleep_interval>
+
+Cross Site Request Forgery 用のパラメータセット
+
+=cut
+
+sub _set_csrf_param {
+  my $self = shift;
+  my $html = shift;
+  my $scraper = scraper {
+    process '//meta[@name="csrf-token"]', token => '@content';
+    result 'token';
+  };
+  my $token = $scraper->scrape($html);
+  $self->{csrf_param} = $token;
+  return $token;
 }
 
 =item B<_parse_timeline>
